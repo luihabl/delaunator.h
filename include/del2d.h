@@ -84,8 +84,6 @@ inline bool inCircle(fp ax, fp ay, fp bx, fp by, fp cx, fp cy, fp px, fp py) {
             ap * (ex * fy - ey * fx)) < 0;
 }
 
-
-
 class Delaunator {
 
 private:
@@ -103,13 +101,16 @@ private:
     std::vector<fp> _dists;
 
     fp _cx, _cy;
-
     size_t _hullStart;
 
-    size_t trianglesLen;
     std::vector<size_t> EDGE_STACK;
 
 public:
+
+    size_t trianglesLen;
+    std::vector<size_t> triangles;
+    std::vector<size_t> halfedges;
+    std::vector<size_t> hull;
 
     size_t n = 0; // number of points
     std::vector<fp> coords;
@@ -322,17 +323,38 @@ public:
                 n = q;
             }
 
-        
+            // walk backward from the other side, adding more triangles and flipping
+            if (e == start) {
+                while (q = _hullPrev[e], orient2d(x, y, coords[2 * q], coords[2 * q + 1], coords[2 * e], coords[2 * e + 1]) < 0) {
+                    t = _addTriangle(q, i, e, NIL, _hullTri[e], _hullTri[q]);
+                    _legalize(t + 2);
+                    _hullTri[q] = t;
+                    _hullNext[e] = e; // mark as removed
+                    hullSize--;
+                    e = q;
+                }
+            }
 
+            // update the hull indices
+            _hullStart = _hullPrev[i] = e;
+            _hullNext[e] = _hullPrev[n] = i;
+            _hullNext[i] = n;
 
-
-
-
-
-
-
+            // save the two new edges in the hash table
+            _hullHash[_hashKey(x, y)] = i;
+            _hullHash[_hashKey(coords[2 * e], coords[2 * e + 1])] = e;
         }
 
+
+        hull = std::vector<size_t>(hullSize);
+        for (size_t i = 0, e = _hullStart; i < hullSize; i++) {
+            hull[i] = e;
+            e = _hullNext[e];
+        }
+
+        // trim typed triangle mesh arrays
+        triangles = std::vector<size_t>(_triangles.begin(), _triangles.begin() + trianglesLen);
+        halfedges = std::vector<size_t>(_halfedges.begin(), _halfedges.begin() + trianglesLen);
     }
 
     size_t _hashKey(fp x, fp y) {
