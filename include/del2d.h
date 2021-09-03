@@ -11,7 +11,7 @@ namespace del2d
 
 // Type definitions
 
-typedef float fp; // You can change the floating-point precision here
+typedef double fp; // You can change the floating-point precision here
 static constexpr std::size_t NIL = std::numeric_limits<std::size_t>::max();
 static constexpr fp EPSILON = std::numeric_limits<fp>::epsilon();
 
@@ -59,6 +59,35 @@ std::array<fp, 2> circumcenter(fp ax, fp ay, fp bx, fp by, fp cx, fp cy) {
 
 inline fp orient2d(fp ax, fp ay, fp bx, fp by, fp cx, fp cy) { //orient2dfast from robust-predicates
      return (ay - cy) * (bx - cx) - (ax - cx) * (by - cy);
+}
+
+inline fp determinant(fp p1x, fp p1y, fp p2x, fp p2y) {
+    return p1x * p2y - p1y * p2x;
+}
+
+inline bool counterclockwise(fp px, fp py, fp qx, fp qy, fp rx, fp ry)
+{
+    fp v0x = qx - px;
+    fp v0y = qy - py;
+
+    fp v1x = qx - rx;
+    fp v1y = qy - ry;
+
+    fp det = determinant(v0x, v0y, v1x, v1y);
+
+
+    double dist = (v0x*v0x + v0y*v0y) + (v1x*v1x + v1y*v1y);
+    double dist2 = sqr_dist(v0x, v0y, v1x, v1y);
+    if (det == 0)
+        return false;
+    double reldet = std::abs(dist / det);
+    if (reldet > 1e14)
+        return false;
+    return det > 0;
+}
+
+inline size_t fast_mod(const size_t i, const size_t c) {
+    return i >= c ? i % c : i;
 }
 
 // monotonically increases with real angle, but doesn't need expensive trigonometry
@@ -290,7 +319,7 @@ public:
             // find a visible edge on the convex hull using edge hash
             size_t start = 0;
             for (size_t j = 0, key = _hashKey(x, y); j < _hashSize; j++) {
-                start = _hullHash[(key + j) % _hashSize];
+                start = _hullHash[fast_mod((key + j),_hashSize)];
                 if (start != NIL && start != _hullNext[start]) break;
             }
 
@@ -314,13 +343,13 @@ public:
             hullSize++;
 
             // walk forward through the hull, adding more triangles and flipping recursively
-            size_t n = _hullNext[e];
-            while (q = _hullNext[n], orient2d(x, y, coords[2 * n], coords[2 * n + 1], coords[2 * q], coords[2 * q + 1]) < 0) {
-                t = _addTriangle(n, i, q, _hullTri[i], NIL, _hullTri[n]);
+            size_t ni = _hullNext[e];
+            while (q = _hullNext[ni], orient2d(x, y, coords[2 * ni], coords[2 * ni + 1], coords[2 * q], coords[2 * q + 1]) < 0) {
+                t = _addTriangle(ni, i, q, _hullTri[i], NIL, _hullTri[ni]);
                 _hullTri[i] = _legalize(t + 2);
-                _hullNext[n] = n; // mark as removed
+                _hullNext[ni] = ni; // mark as removed
                 hullSize--;
-                n = q;
+                ni = q;
             }
 
             // walk backward from the other side, adding more triangles and flipping
@@ -337,8 +366,8 @@ public:
 
             // update the hull indices
             _hullStart = _hullPrev[i] = e;
-            _hullNext[e] = _hullPrev[n] = i;
-            _hullNext[i] = n;
+            _hullNext[e] = _hullPrev[ni] = i;
+            _hullNext[i] = ni;
 
             // save the two new edges in the hash table
             _hullHash[_hashKey(x, y)] = i;
@@ -358,7 +387,7 @@ public:
     }
 
     size_t _hashKey(fp x, fp y) {
-        return ((size_t)std::floor(pseudoAngle(x - _cx, y - _cy) * (fp)_hashSize)) % _hashSize;
+        return fast_mod(((size_t)std::floor(pseudoAngle(x - _cx, y - _cy) * (fp)_hashSize)), _hashSize);
     }
 
     void _link(size_t a, size_t b) {
@@ -407,8 +436,8 @@ public:
              *          \||/                  \  /
              *           pr                    pr
              */
-            const size_t a0 = a - a % 3;
-            ar = a0 + (a + 2) % 3;
+            const size_t a0 = a - fast_mod(a, 3);
+            ar = a0 + fast_mod((a + 2), 3);
 
             if (b == NIL) { // convex hull edge
                 if (i == 0) break;
@@ -416,9 +445,9 @@ public:
                 continue;
             }
 
-            const size_t b0 = b - b % 3;
-            const size_t al = a0 + (a + 1) % 3;
-            const size_t bl = b0 + (b + 2) % 3;
+            const size_t b0 = b - fast_mod(b, 3);
+            const size_t al = a0 + fast_mod((a + 1), 3);
+            const size_t bl = b0 + fast_mod((b + 2), 3);
 
             const size_t p0 = _triangles[ar];
             const size_t pr = _triangles[a];
@@ -452,7 +481,7 @@ public:
                 _link(b, _halfedges[ar]);
                 _link(ar, bl);
 
-                const size_t br = b0 + (b + 1) % 3;
+                const size_t br = b0 + fast_mod((b + 1), 3);
 
                 // don't worry about hitting the cap: it can only happen on extremely degenerate input
                 if (i < EDGE_STACK.size()) {
