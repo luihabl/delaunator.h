@@ -13,8 +13,7 @@ int main()
         12, 4
     };
 
-    auto m = del2d::Mesh(points);
-    m.triangulate();
+    auto m = del2d::Delaunator(points);
 
     std::cout << "finished" << std::endl;
 
