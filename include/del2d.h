@@ -41,7 +41,7 @@ inline fp circumradius(fp ax, fp ay, fp bx, fp by, fp cx, fp cy) {
     return x * x + y * y;
 }
 
-std::array<fp, 2> circumcenter(fp ax, fp ay, fp bx, fp by, fp cx, fp cy) {
+inline std::array<fp, 2> circumcenter2(fp ax, fp ay, fp bx, fp by, fp cx, fp cy) {
     const fp dx = bx - ax;
     const fp dy = by - ay;
     const fp ex = cx - ax;
@@ -57,41 +57,28 @@ std::array<fp, 2> circumcenter(fp ax, fp ay, fp bx, fp by, fp cx, fp cy) {
     return {x, y};
 }
 
+inline std::array<fp, 2> circumcenter(fp ax, fp ay, fp bx, fp by, fp cx, fp cy) {
+    const double dx = bx - ax;
+    const double dy = by - ay;
+    const double ex = cx - ax;
+    const double ey = cy - ay;
+
+    const double bl = dx * dx + dy * dy;
+    const double cl = ex * ex + ey * ey;
+    const double d = dx * ey - dy * ex;
+
+    const double x = ax + (ey * bl - dy * cl) * 0.5 / d;
+    const double y = ay + (dx * cl - ex * bl) * 0.5 / d;
+
+    return {x, y};
+}
+
 inline fp orient2d(fp ax, fp ay, fp bx, fp by, fp cx, fp cy) { //orient2dfast from robust-predicates
      return (ay - cy) * (bx - cx) - (ax - cx) * (by - cy);
 }
 
-inline fp determinant(fp p1x, fp p1y, fp p2x, fp p2y) {
-    return p1x * p2y - p1y * p2x;
-}
-
-inline bool counterclockwise(fp px, fp py, fp qx, fp qy, fp rx, fp ry)
-{
-    fp v0x = qx - px;
-    fp v0y = qy - py;
-
-    fp v1x = qx - rx;
-    fp v1y = qy - ry;
-
-    fp det = determinant(v0x, v0y, v1x, v1y);
-
-
-    double dist = (v0x*v0x + v0y*v0y) + (v1x*v1x + v1y*v1y);
-    double dist2 = sqr_dist(v0x, v0y, v1x, v1y);
-    if (det == 0)
-        return false;
-    double reldet = std::abs(dist / det);
-    if (reldet > 1e14)
-        return false;
-    return det > 0;
-}
-
-inline size_t fast_mod(const size_t i, const size_t c) {
-    return i >= c ? i % c : i;
-}
-
 // monotonically increases with real angle, but doesn't need expensive trigonometry
-fp pseudoAngle(fp dx, fp dy) {
+inline fp pseudoAngle(fp dx, fp dy) {
     const fp p = dx / (std::abs(dx) + std::abs(dy));
     return (dy > 0.0 ? 3.0 - p : 1.0 + p) / 4.0; // [0..1]
 }
@@ -153,7 +140,7 @@ public:
         _halfedges.resize(maxTriangles * 3);
 
         // temporary arrays for tracking the edges of the advancing convex hull
-        _hashSize = static_cast<std::size_t>(std::ceil(std::sqrt(n)));
+        _hashSize = (size_t) std::ceil(std::sqrt(n));
         _hullPrev.resize(n);
         _hullNext.resize(n);
         _hullTri.resize(n);
@@ -164,6 +151,8 @@ public:
         // temporary arrays for sorting points
         _ids.resize(n);
         _dists.resize(n);
+
+        EDGE_STACK.resize(512);
 
         update();
     }
@@ -233,7 +222,7 @@ public:
         }
         fp i2x = coords[2 * i2];
         fp i2y = coords[2 * i2 + 1];
-        
+
         if (minRadius == std::numeric_limits<fp>::max()) {
             // order collinear points by dx (or dy if all x are identical)
             // and return the list as a hull
@@ -274,11 +263,11 @@ public:
         _cy = center[1];
 
         for (size_t i = 0; i < n; i++) {
-            _dists[i] = sqr_dist(coords[2 * i], coords[2 * i + 1], center[0], center[0]); // Check if sqr_distance is a problem
+            _dists[i] = sqr_dist(coords[2 * i], coords[2 * i + 1], _cx, _cy);
         }
 
         // sort the points by distance from the seed triangle circumcenter
-        std::sort(_ids.begin(), _ids.end(), [this](std::size_t i, std::size_t j) { return _dists[i] < _dists[j]; });
+        std::sort(_ids.begin(), _ids.end(), [this](size_t i, size_t j) { return _dists[i] < _dists[j]; });
 
         // set up the seed triangle as the starting hull
         _hullStart = i0;
@@ -309,7 +298,7 @@ public:
             const fp y = coords[2 * i + 1];
 
             // skip near-duplicate points
-            if (k > 0 && std::abs(x - xp) <= EPSILON && std::abs(y - yp) <= EPSILON) continue;
+            if (std::abs(x - xp) <= EPSILON && std::abs(y - yp) <= EPSILON) continue; // <======= remove k<0 check
             xp = x;
             yp = y;
 
@@ -319,7 +308,7 @@ public:
             // find a visible edge on the convex hull using edge hash
             size_t start = 0;
             for (size_t j = 0, key = _hashKey(x, y); j < _hashSize; j++) {
-                start = _hullHash[fast_mod((key + j),_hashSize)];
+                start = _hullHash[(key + j) % _hashSize];
                 if (start != NIL && start != _hullNext[start]) break;
             }
 
@@ -328,11 +317,11 @@ public:
             while (q = _hullNext[e], orient2d(x, y, coords[2 * e], coords[2 * e + 1], coords[2 * q], coords[2 * q + 1]) >= 0) {
                 e = q;
                 if (e == start) {
-                    e = -1;
+                    e = NIL;
                     break;
                 }
             }
-            if (e == -1) continue; // likely a near-duplicate point; skip it
+            if (e == NIL) continue; // likely a near-duplicate point; skip it
 
             // add the first triangle from the point
             size_t t = _addTriangle(e, i, _hullNext[e], NIL, NIL, _hullTri[e]);
@@ -387,7 +376,7 @@ public:
     }
 
     size_t _hashKey(fp x, fp y) {
-        return fast_mod(((size_t)std::floor(pseudoAngle(x - _cx, y - _cy) * (fp)_hashSize)), _hashSize);
+        return ((size_t)std::floor(pseudoAngle(x - _cx, y - _cy) * (fp)_hashSize)) % _hashSize;
     }
 
     void _link(size_t a, size_t b) {
@@ -436,8 +425,8 @@ public:
              *          \||/                  \  /
              *           pr                    pr
              */
-            const size_t a0 = a - fast_mod(a, 3);
-            ar = a0 + fast_mod((a + 2), 3);
+            const size_t a0 = 3 * (a / 3);
+            ar = a0 + (a + 2) % 3;
 
             if (b == NIL) { // convex hull edge
                 if (i == 0) break;
@@ -445,14 +434,15 @@ public:
                 continue;
             }
 
-            const size_t b0 = b - fast_mod(b, 3);
-            const size_t al = a0 + fast_mod((a + 1), 3);
-            const size_t bl = b0 + fast_mod((b + 2), 3);
+            const size_t b0 = 3 * (b / 3);
+            const size_t al = a0 + (a + 1) % 3;
+            const size_t bl = b0 + (b + 2) % 3;
 
             const size_t p0 = _triangles[ar];
             const size_t pr = _triangles[a];
             const size_t pl = _triangles[al];
             const size_t p1 = _triangles[bl];
+
 
             const bool illegal = inCircle(
                 coords[2 * p0], coords[2 * p0 + 1],
@@ -481,7 +471,7 @@ public:
                 _link(b, _halfedges[ar]);
                 _link(ar, bl);
 
-                const size_t br = b0 + fast_mod((b + 1), 3);
+                const size_t br = b0 + (b + 1) % 3;
 
                 // don't worry about hitting the cap: it can only happen on extremely degenerate input
                 if (i < EDGE_STACK.size()) {
@@ -498,25 +488,6 @@ public:
 
 
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 }
 
