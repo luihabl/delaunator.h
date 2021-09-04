@@ -19,11 +19,10 @@ private:
     std::vector<size_t> _triangles;
     std::vector<size_t> _halfedges;
 
+    size_t _hashSize;
     std::vector<size_t> _hullPrev;
     std::vector<size_t> _hullNext;
     std::vector<size_t> _hullTri;
-
-    size_t _hashSize;
     std::vector<size_t> _hullHash;
 
     std::vector<size_t> _ids;
@@ -79,19 +78,15 @@ private:
         fp maxX = std::numeric_limits<fp>::lowest();
         fp maxY = std::numeric_limits<fp>::lowest();
 
-
         for (size_t i = 0; i < n; i++) {
-            const auto x = coords[i * 2 + 0];
-            const auto y = coords[i * 2 + 1];
-
-            minX = std::min(x, minX);
-            minY = std::min(y, minY);
-            maxX = std::max(x, maxX);
-            maxY = std::max(y, maxY);
-        
+            const fp x = coords[2 * i];
+            const fp y = coords[2 * i + 1];
+            if (x < minX) minX = x;
+            if (y < minY) minY = y;
+            if (x > maxX) maxX = x;
+            if (y > maxY) maxY = y;
             _ids[i] = i;
         }
-
         const fp cx = (minX + maxX) / 2;
         const fp cy = (minY + maxY) / 2;
 
@@ -140,22 +135,22 @@ private:
         if (minRadius == std::numeric_limits<fp>::max()) {
             // order collinear points by dx (or dy if all x are identical)
             // and return the list as a hull
-            // for (size_t i = 0; i < n; i++) {
-            //     _dists[i] = (coords[2 * i] - coords[0]) || (coords[2 * i + 1] - coords[1]);
-            // }
-            // quicksort(this._ids, this._dists, 0, n - 1);
-            // const hull = new Uint32Array(n);
-            // let j = 0;
-            // for (let i = 0, d0 = -Infinity; i < n; i++) {
-            //     const id = this._ids[i];
-            //     if (this._dists[id] > d0) {
-            //         hull[j++] = id;
-            //         d0 = this._dists[id];
-            //     }
-            // }
-            // this.hull = hull.subarray(0, j);
-            // this.triangles = new Uint32Array(0);
-            // this.halfedges = new Uint32Array(0);
+            for (size_t i = 0; i < n; i++) {
+                _dists[i] = std::max((coords[2 * i] - coords[0]), (coords[2 * i + 1] - coords[1]));
+            }
+            std::sort(_ids.begin(), _ids.end(), [this](size_t i, size_t j) { return _dists[i] < _dists[j]; });
+            hull = std::vector<size_t>(n);
+            size_t j = 0;
+            for (size_t i = 0, d0 = std::numeric_limits<fp>::min(); i < n; i++) {
+                size_t id = _ids[i];
+                if (_dists[id] > d0) {
+                    hull[j++] = id;
+                    d0 = _dists[id];
+                }
+            }
+            hull = std::vector<size_t>(hull.begin(), hull.begin() + j);
+            triangles = std::vector<size_t>(0);
+            halfedges = std::vector<size_t>(0);
             return;
         }
 
