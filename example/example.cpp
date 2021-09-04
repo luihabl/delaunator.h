@@ -1,4 +1,4 @@
-#include <del2d.h>
+#include <delaunator.h>
 
 #include <algorithm>
 #include <set>
@@ -151,24 +151,17 @@ int main()
     //     10, 6,
     //     12, 4
     // };
-    std::cout << "A" << std::endl;
+    // std::cout << "A" << std::endl;
 
     auto coords = read_csv("<path>");
     size_t np = coords.size() / 2;
     
-    std::cout << "B" << std::endl;
+    // std::cout << "B" << std::endl;
     del2d::Delaunator d(coords);
 
-    // for(size_t i = 0; i < d.triangles.size(); i+=3)
-    // {
-    //     std::cout << d.triangles[i] << " "  << d.triangles[i+1] << " " << d.triangles[i+2] << std::endl;
+    // std::cout << d.triangles.size() << std::endl;
 
-    // }
-
-
-    std::cout << d.triangles.size() << std::endl;
-
-    std::cout << "C" << std::endl;
+    // std::cout << "C" << std::endl;
 
     std::set<std::pair<size_t, size_t>> s;
 
@@ -202,7 +195,7 @@ int main()
     //     i++;
     // } 
 
-    std::cout << "D" << std::endl;
+    // std::cout << "D" << std::endl;
 
 
     Graph g(np, distances.size());
@@ -221,14 +214,10 @@ int main()
     
     double m = 0;
     for(const auto& n : mst)
-    {
-        if (m < n.first)
-        {
-            m = n.first;
-            // std::cout << n.second.first << " " << n.second.second << std::endl;;
-        }
+    {   
+        m = std::max(m, n.first);
     }
-    std::cout << "E" << std::endl;
 
     std::cout << "Result: " << m << std::endl;
+
 }
