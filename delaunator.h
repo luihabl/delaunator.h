@@ -6,14 +6,10 @@
 #include <cmath>
 #include <limits>
 
-typedef double fp; // You can change the floating-point precision here
-constexpr std::size_t NIL = std::numeric_limits<std::size_t>::max();
-constexpr fp EPSILON = std::numeric_limits<fp>::epsilon();
-
-namespace del2d
-{
-
 class Delaunator {
+    typedef float fp; // You can change the floating-point precision here
+    #define NIL std::numeric_limits<std::size_t>::max()
+    #define EPSILON std::numeric_limits<fp>::epsilon()
 
 private:
     std::vector<size_t> _triangles;
@@ -463,8 +459,5 @@ private:
                 dy * (ex * cp - bp * fx) +
                 ap * (ex * fy - ey * fx)) < 0;
     }
-
 };
-
-}
 
