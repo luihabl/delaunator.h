@@ -1,5 +1,5 @@
 # delaunator.h
-A header-only C++11 port of the [delaunator](https://github.com/mapbox/delaunator).
+A header-only C++11 port of the [delaunator](https://github.com/mapbox/delaunator) JavaScript Delaunay triangulation library. 
 
 ## How to use
 Here is a minimal usage example: 
