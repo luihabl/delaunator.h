@@ -6,99 +6,12 @@
 #include <cmath>
 #include <limits>
 
+typedef double fp; // You can change the floating-point precision here
+constexpr std::size_t NIL = std::numeric_limits<std::size_t>::max();
+constexpr fp EPSILON = std::numeric_limits<fp>::epsilon();
+
 namespace del2d
 {
-
-// Type definitions
-
-typedef double fp; // You can change the floating-point precision here
-static constexpr std::size_t NIL = std::numeric_limits<std::size_t>::max();
-static constexpr fp EPSILON = std::numeric_limits<fp>::epsilon();
-
-// Utilities
-
-inline fp dist(fp x0, fp y0, fp x1, fp y1) {
-    return sqrt((x1-x0)*(x1-x0) + (y1-y0)*(y1-y0));
-}
-
-inline fp sqr_dist(fp x0, fp y0, fp x1, fp y1) {
-    return (x1-x0)*(x1-x0) + (y1-y0)*(y1-y0);
-}
-
-inline fp circumradius(fp ax, fp ay, fp bx, fp by, fp cx, fp cy) {
-    const fp dx = bx - ax;
-    const fp dy = by - ay;
-    const fp ex = cx - ax;
-    const fp ey = cy - ay;
-
-    const fp bl = dx * dx + dy * dy;
-    const fp cl = ex * ex + ey * ey;
-    const fp d = 0.5 / (dx * ey - dy * ex);
-
-    const fp x = (ey * bl - dy * cl) * d;
-    const fp y = (dx * cl - ex * bl) * d;
-
-    return x * x + y * y;
-}
-
-inline std::array<fp, 2> circumcenter2(fp ax, fp ay, fp bx, fp by, fp cx, fp cy) {
-    const fp dx = bx - ax;
-    const fp dy = by - ay;
-    const fp ex = cx - ax;
-    const fp ey = cy - ay;
-
-    const fp bl = dx * dx + dy * dy;
-    const fp cl = ex * ex + ey * ey;
-    const fp d = 0.5 / (dx * ey - dy * ex);
-
-    const fp x = ax + (ey * bl - dy * cl) * d;
-    const fp y = ay + (dx * cl - ex * bl) * d;
-
-    return {x, y};
-}
-
-inline std::array<fp, 2> circumcenter(fp ax, fp ay, fp bx, fp by, fp cx, fp cy) {
-    const double dx = bx - ax;
-    const double dy = by - ay;
-    const double ex = cx - ax;
-    const double ey = cy - ay;
-
-    const double bl = dx * dx + dy * dy;
-    const double cl = ex * ex + ey * ey;
-    const double d = dx * ey - dy * ex;
-
-    const double x = ax + (ey * bl - dy * cl) * 0.5 / d;
-    const double y = ay + (dx * cl - ex * bl) * 0.5 / d;
-
-    return {x, y};
-}
-
-inline fp orient2d(fp ax, fp ay, fp bx, fp by, fp cx, fp cy) { //orient2dfast from robust-predicates
-     return (ay - cy) * (bx - cx) - (ax - cx) * (by - cy);
-}
-
-// monotonically increases with real angle, but doesn't need expensive trigonometry
-inline fp pseudoAngle(fp dx, fp dy) {
-    const fp p = dx / (std::abs(dx) + std::abs(dy));
-    return (dy > 0.0 ? 3.0 - p : 1.0 + p) / 4.0; // [0..1]
-}
-
-inline bool inCircle(fp ax, fp ay, fp bx, fp by, fp cx, fp cy, fp px, fp py) {
-    const fp dx = ax - px;
-    const fp dy = ay - py;
-    const fp ex = bx - px;
-    const fp ey = by - py;
-    const fp fx = cx - px;
-    const fp fy = cy - py;
-
-    const fp ap = dx * dx + dy * dy;
-    const fp bp = ex * ex + ey * ey;
-    const fp cp = fx * fx + fy * fy;
-
-    return (dx * (ey * cp - bp * fy) -
-            dy * (ex * cp - bp * fx) +
-            ap * (ex * fy - ey * fx)) < 0;
-}
 
 class Delaunator {
 
@@ -157,6 +70,7 @@ public:
         update();
     }
 
+private:
     inline void update() {
 
         // populate an array of point indices; calculate input data bbox
@@ -486,6 +400,74 @@ public:
         return ar;
     }
 
+// Utilities
+
+    inline fp dist(fp x0, fp y0, fp x1, fp y1) {
+        return sqrt((x1-x0)*(x1-x0) + (y1-y0)*(y1-y0));
+    }
+
+    inline fp sqr_dist(fp x0, fp y0, fp x1, fp y1) {
+        return (x1-x0)*(x1-x0) + (y1-y0)*(y1-y0);
+    }
+
+    inline fp circumradius(fp ax, fp ay, fp bx, fp by, fp cx, fp cy) {
+        const fp dx = bx - ax;
+        const fp dy = by - ay;
+        const fp ex = cx - ax;
+        const fp ey = cy - ay;
+
+        const fp bl = dx * dx + dy * dy;
+        const fp cl = ex * ex + ey * ey;
+        const fp d = 0.5 / (dx * ey - dy * ex);
+
+        const fp x = (ey * bl - dy * cl) * d;
+        const fp y = (dx * cl - ex * bl) * d;
+
+        return x * x + y * y;
+    }
+
+    inline std::array<fp, 2> circumcenter(fp ax, fp ay, fp bx, fp by, fp cx, fp cy) {
+        const fp dx = bx - ax;
+        const fp dy = by - ay;
+        const fp ex = cx - ax;
+        const fp ey = cy - ay;
+
+        const fp bl = dx * dx + dy * dy;
+        const fp cl = ex * ex + ey * ey;
+        const fp d = 0.5 / (dx * ey - dy * ex);
+
+        const fp x = ax + (ey * bl - dy * cl) * d;
+        const fp y = ay + (dx * cl - ex * bl) * d;
+
+        return {x, y};
+    }
+
+    inline fp orient2d(fp ax, fp ay, fp bx, fp by, fp cx, fp cy) { //orient2dfast from robust-predicates
+        return (ay - cy) * (bx - cx) - (ax - cx) * (by - cy);
+    }
+
+    // monotonically increases with real angle, but doesn't need expensive trigonometry
+    inline fp pseudoAngle(fp dx, fp dy) {
+        const fp p = dx / (std::abs(dx) + std::abs(dy));
+        return (dy > 0.0 ? 3.0 - p : 1.0 + p) / 4.0; // [0..1]
+    }
+
+    inline bool inCircle(fp ax, fp ay, fp bx, fp by, fp cx, fp cy, fp px, fp py) {
+        const fp dx = ax - px;
+        const fp dy = ay - py;
+        const fp ex = bx - px;
+        const fp ey = by - py;
+        const fp fx = cx - px;
+        const fp fy = cy - py;
+
+        const fp ap = dx * dx + dy * dy;
+        const fp bp = ex * ex + ey * ey;
+        const fp cp = fx * fx + fy * fy;
+
+        return (dx * (ey * cp - bp * fy) -
+                dy * (ex * cp - bp * fx) +
+                ap * (ex * fy - ey * fx)) < 0;
+    }
 
 };
 
