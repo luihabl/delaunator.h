@@ -29,3 +29,6 @@ int main() {
     return 0;
 }
 ```
+# Building
+To use the library just include the [delaunator.h](delaunator.h) header and use it! To build the example file you can use CMake 3.11+.
+
